@@ -1,8 +1,9 @@
 package state
 
 import (
+	"github.com/boke0/att/pkg/primitives"
 	. "github.com/boke0/att/pkg/primitives"
-    "github.com/oklog/ulid/v2"
+	"github.com/oklog/ulid/v2"
 )
 
 type ArtState struct {
@@ -26,7 +27,7 @@ func (a ArtState) IsAlice() bool {
     }
 }
 
-func (a ArtState) PrivateKey() *[]byte {
+func (a ArtState) PrivateKey() *primitives.PrivateKey {
     if a.Alice != nil {
         k := a.Alice.PrivateKey()
         return &k
@@ -36,7 +37,7 @@ func (a ArtState) PrivateKey() *[]byte {
     }
 }
 
-func (a ArtState) PublicKey() []byte {
+func (a ArtState) PublicKey() primitives.PublicKey {
     if a.Alice != nil {
         return a.Alice.PublicKey()
     }else{
@@ -46,32 +47,32 @@ func (a ArtState) PublicKey() []byte {
 
 type ArtAliceState struct {
     Id ulid.ULID
-    EphemeralKey []byte
+    EphemeralKey primitives.PrivateKey
     EphemeralKeySignature []byte
-    SetupKey []byte
+    SetupKey primitives.PublicKey
     IsInitiator bool
 }
 
-func (a ArtAliceState) PrivateKey() []byte {
+func (a ArtAliceState) PrivateKey() primitives.PrivateKey {
     return DiffieHellman(a.EphemeralKey, a.SetupKey)
 }
 
-func (a ArtAliceState) PublicKey() []byte {
+func (a ArtAliceState) PublicKey() primitives.PublicKey {
     return AsPublic(a.PrivateKey())
 }
 
 type ArtBobState struct {
     Id ulid.ULID
-    EphemeralKey []byte
+    EphemeralKey primitives.PublicKey
     EphemeralKeySignature []byte
-    SetupKey []byte
+    SetupKey primitives.PrivateKey
     IsInitiator bool
 }
 
-func (a ArtBobState) PrivateKey() []byte {
-    return DiffieHellman(a.EphemeralKey, a.SetupKey)
+func (a ArtBobState) PrivateKey() primitives.PrivateKey {
+    return DiffieHellman(a.SetupKey, a.EphemeralKey)
 }
 
-func (a ArtBobState) PublicKey() []byte {
+func (a ArtBobState) PublicKey() primitives.PublicKey {
     return AsPublic(a.PrivateKey())
 }

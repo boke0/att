@@ -18,7 +18,7 @@ type TreeNode[Peer IPeer] struct {
     Right *TreeNode[Peer]
 }
 
-func (t Tree[IPeer]) DiffieHellman() ([]byte, map[string][]byte) {
+func (t Tree[IPeer]) DiffieHellman() ([]byte, map[string]primitives.PublicKey) {
     key, publicKeys := t.DiffieHellman()
     delete(publicKeys, t.Root.Id)
     return key, publicKeys
@@ -32,15 +32,15 @@ func (t TreeNode[IPeer]) IsAliceSide() bool {
     return (t.Peer != nil && t.Peer.IsAlice()) || t.Left.IsAlice() || t.Right.IsAlice()
 }
 
-func (t TreeNode[IPeer]) DiffieHellman() ([]byte, map[string][]byte) {
+func (t TreeNode[IPeer]) DiffieHellman() ([]byte, map[string]primitives.PublicKey) {
     if t.IsAlice() {
-        return *t.Peer.PrivateKey(), make(map[string][]byte)
+        return *t.Peer.PrivateKey(), make(map[string]primitives.PublicKey)
     }else if t.PublicKey != nil {
-        return *t.PublicKey, make(map[string][]byte)
+        return *t.PublicKey, make(map[string]primitives.PublicKey)
     }else{
         var (
             privateKey, publicKey []byte
-            nodeLeftPublicKeys, nodeRightPublicKeys map[string][]byte
+            nodeLeftPublicKeys, nodeRightPublicKeys map[string]primitives.PublicKey
         )
 
         if t.Left.IsAlice() {
@@ -54,7 +54,7 @@ func (t TreeNode[IPeer]) DiffieHellman() ([]byte, map[string][]byte) {
         result := primitives.DiffieHellman(privateKey, publicKey)
         key := sha256.Sum256(result)
         pub := primitives.AsPublic(key[:])
-        nodePublicKeys := map[string][]byte {
+        nodePublicKeys := map[string]primitives.PublicKey {
             t.Id: pub,
         }
         nodePublicKeys = merge(nodePublicKeys, nodeLeftPublicKeys)
@@ -72,8 +72,8 @@ func (t TreeNode[IPeer]) Count() int {
     }
 }
 
-func merge(m ...map[string][]byte) map[string][]byte {
-    ans := make(map[string][]byte, 0)
+func merge(m ...map[string]primitives.PublicKey) map[string]primitives.PublicKey {
+    ans := make(map[string]primitives.PublicKey, 0)
 
     for _, c := range m {
         for k, v := range c {

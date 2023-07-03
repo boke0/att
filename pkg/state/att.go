@@ -1,6 +1,7 @@
 package state
 
 import (
+	"github.com/boke0/att/pkg/primitives"
 	. "github.com/boke0/att/pkg/primitives"
 	"github.com/oklog/ulid/v2"
 )
@@ -34,7 +35,7 @@ func (a AttState) IsAlice() bool {
     }
 }
 
-func (a AttState) PrivateKey() *[]byte {
+func (a AttState) PrivateKey() *primitives.PrivateKey {
     if a.Alice != nil {
         return &a.Alice.EphemeralKey
     }else{
@@ -42,7 +43,7 @@ func (a AttState) PrivateKey() *[]byte {
     }
 }
 
-func (a AttState) PublicKey() []byte {
+func (a AttState) PublicKey() primitives.PublicKey {
     if a.Alice != nil {
         return AsPublic(a.Alice.EphemeralKey)
     }else{
@@ -52,14 +53,14 @@ func (a AttState) PublicKey() []byte {
 
 type AttAliceState struct {
     Id ulid.ULID
-    EphemeralKey []byte
+    EphemeralKey primitives.PrivateKey
     EphemeralKeySignature []byte
     IsActive bool
 }
 
 type AttBobState struct {
     Id ulid.ULID
-    EphemeralKey []byte
+    EphemeralKey primitives.PublicKey
     EphemeralKeySignature []byte
     IsActive bool
 }

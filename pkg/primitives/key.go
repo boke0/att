@@ -9,13 +9,16 @@ import (
 	"filippo.io/edwards25519/field"
 )
 
-func AsPublic(key []byte) []byte {
+type PrivateKey []byte
+type PublicKey []byte
+
+func AsPublic(key PrivateKey) PublicKey {
 	pub, _ := curve25519.X25519(key, curve25519.Basepoint)
 	return pub
 }
 
 
-func DiffieHellman(priv []byte, pub  []byte) []byte {
+func DiffieHellman(priv PrivateKey, pub PublicKey) []byte {
 	result, _ := curve25519.X25519(priv, pub)
 	return result
 }
@@ -27,7 +30,7 @@ func RandomByte() []byte {
 }
 
 
-func ToEd25519(p []byte) (ed25519.PublicKey, error) {
+func ToEd25519(p PublicKey) (ed25519.PublicKey, error) {
 	A, err := convertMont(p)
 	if err != nil {
 		return nil, err
@@ -49,7 +52,7 @@ func ToEd25519(p []byte) (ed25519.PublicKey, error) {
 //       else:
 //           a = k (mod q)
 //       return A, a
-func calculateKeyPair(p []byte) ([]byte, *edwards25519.Scalar, error) {
+func calculateKeyPair(p PrivateKey) ([]byte, *edwards25519.Scalar, error) {
 	var pA edwards25519.Point
 	var sa edwards25519.Scalar
 
@@ -83,7 +86,7 @@ var one = (&field.Element{}).One()
 //     P.y = u_to_y(umasked)
 //     P.s = 0
 //     return P
-func convertMont(u []byte) (*edwards25519.Point, error) {
+func convertMont(u PublicKey) (*edwards25519.Point, error) {
 	um, err := (&field.Element{}).SetBytes(u)
 	if err != nil {
 		return nil, err
