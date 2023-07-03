@@ -121,11 +121,15 @@ func add(t TreeNode[AttState], state AttState) TreeNode[AttState] {
 		pub *[]byte
 	)
     idBytes := sha256.Sum256([]byte(t.Id + state.Id()))
-    return TreeNode[AttState] {
-        Id: hex.EncodeToString(idBytes[:]),
-        Peer: state,
-        PublicKey: pub,
-    }
+	return TreeNode[AttState] {
+		Id: hex.EncodeToString(idBytes[:]),
+		Left: &t,
+		Right: &TreeNode[AttState] {
+			Id: state.Id(),
+			Peer: state,
+			PublicKey: pub,
+		},
+	}
 }
 
 func isActive(t TreeNode[AttState]) bool {

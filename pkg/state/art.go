@@ -28,17 +28,19 @@ func (a ArtState) IsAlice() bool {
 
 func (a ArtState) PrivateKey() *[]byte {
     if a.Alice != nil {
-        return &a.Alice.EphemeralKey
+        k := a.Alice.PrivateKey()
+        return &k
     }else{
-        return nil
+        k := a.Bob.PrivateKey()
+        return &k
     }
 }
 
 func (a ArtState) PublicKey() []byte {
     if a.Alice != nil {
-        return AsPublic(a.Alice.EphemeralKey)
+        return a.Alice.PublicKey()
     }else{
-        return a.Bob.EphemeralKey
+        return a.Bob.PublicKey()
     }
 }
 
@@ -46,10 +48,30 @@ type ArtAliceState struct {
     Id ulid.ULID
     EphemeralKey []byte
     EphemeralKeySignature []byte
+    SetupKey []byte
+    IsInitiator bool
+}
+
+func (a ArtAliceState) PrivateKey() []byte {
+    return DiffieHellman(a.EphemeralKey, a.SetupKey)
+}
+
+func (a ArtAliceState) PublicKey() []byte {
+    return AsPublic(a.PrivateKey())
 }
 
 type ArtBobState struct {
     Id ulid.ULID
     EphemeralKey []byte
     EphemeralKeySignature []byte
+    SetupKey []byte
+    IsInitiator bool
+}
+
+func (a ArtBobState) PrivateKey() []byte {
+    return DiffieHellman(a.EphemeralKey, a.SetupKey)
+}
+
+func (a ArtBobState) PublicKey() []byte {
+    return AsPublic(a.PrivateKey())
 }
