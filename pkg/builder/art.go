@@ -66,3 +66,20 @@ func insertToArt(t TreeNode[ArtState], state ArtState) TreeNode[ArtState] {
 
 	}
 }
+
+func AttachKeys(tree *Tree[ArtState], publicKeys map[string]PublicKey) {
+	attachKeys(&tree.Root, publicKeys)
+}
+
+func attachKeys(treeNode *TreeNode[ArtState], keys map[string]PublicKey) {
+	k := keys[treeNode.Id]
+	if k != nil {
+		treeNode.PublicKey = &k
+	}
+	if treeNode.Left != nil {
+		attachKeys(treeNode.Left, keys)
+	}
+	if treeNode.Right != nil {
+		attachKeys(treeNode.Right, keys)
+	}
+}

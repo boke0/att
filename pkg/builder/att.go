@@ -117,9 +117,6 @@ func addTwo(t TreeNode[AttState], state1 AttState, state2 AttState) TreeNode[Att
 }
 
 func add(t TreeNode[AttState], state AttState) TreeNode[AttState] {
-	var (
-		pub *[]byte
-	)
     idBytes := sha256.Sum256([]byte(t.Id + state.Id()))
 	return TreeNode[AttState] {
 		Id: hex.EncodeToString(idBytes[:]),
@@ -127,7 +124,6 @@ func add(t TreeNode[AttState], state AttState) TreeNode[AttState] {
 		Right: &TreeNode[AttState] {
 			Id: state.Id(),
 			Peer: state,
-			PublicKey: pub,
 		},
 	}
 }

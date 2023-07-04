@@ -13,7 +13,7 @@ type Tree[Peer IPeer] struct {
 type TreeNode[Peer IPeer] struct {
     Id string
     Peer IPeer
-    PublicKey *[]byte
+    PublicKey *primitives.PublicKey
     Left *TreeNode[Peer]
     Right *TreeNode[Peer]
 }
@@ -35,6 +35,8 @@ func (t TreeNode[IPeer]) IsAliceSide() bool {
 func (t TreeNode[IPeer]) DiffieHellman() ([]byte, map[string]primitives.PublicKey) {
     if t.IsAlice() {
         return *t.Peer.PrivateKey(), make(map[string]primitives.PublicKey)
+    }else if t.Peer != nil {
+        return t.Peer.PublicKey(), make(map[string]primitives.PublicKey)
     }else if t.PublicKey != nil {
         return *t.PublicKey, make(map[string]primitives.PublicKey)
     }else{

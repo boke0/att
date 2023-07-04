@@ -2,10 +2,11 @@ package builder
 
 import (
 	"math/rand"
-	"github.com/boke0/att/pkg/state"
-	"github.com/oklog/ulid/v2"
 	"testing"
 	"time"
+
+	"github.com/boke0/att/pkg/state"
+	"github.com/oklog/ulid/v2"
 )
 
 func TestBuildArtTree(t *testing.T) {
