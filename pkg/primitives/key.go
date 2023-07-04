@@ -1,12 +1,18 @@
 package primitives
 
 import (
-	"crypto/rand"
+	"crypto"
 	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha512"
+	"crypto/subtle"
+	"errors"
+	"io"
+	"strconv"
 
-	"golang.org/x/crypto/curve25519"
 	"filippo.io/edwards25519"
 	"filippo.io/edwards25519/field"
+	"golang.org/x/crypto/curve25519"
 )
 
 type PrivateKey []byte
@@ -102,3 +108,138 @@ func convertMont(u PublicKey) (*edwards25519.Point, error) {
 
 	return (&edwards25519.Point{}).SetBytes(y)
 }
+
+// Sign signs the message with privateKey and returns a signature. It will panic
+// if len(privateKey) is not PrivateKeySize.
+//
+// It implements the XEdDSA sign method defined in
+// https://signal.org/docs/specifications/xeddsa/#xeddsa
+//
+//   xeddsa_sign(k, M, Z):
+//       A, a = calculate_key_pair(k)
+//       r = hash1(a || M || Z) (mod q)
+//       R = rB
+//       h = hash(R || A || M) (mod q)
+//       s = r + ha (mod q)
+//       return R || s
+func Sign(rand io.Reader, p PrivateKey, message []byte) (signature []byte, err error) {
+	if l := len(p); l != 32 {
+		panic("x25519: bad private key length: " + strconv.Itoa(l))
+	}
+
+	pub, priv, err := calculateKeyPair(p)
+	if err != nil {
+		return nil, err
+	}
+
+	random := make([]byte, 64)
+	if _, err := io.ReadFull(rand, random); err != nil {
+		return nil, err
+	}
+
+	// Using same prefix in libsignal-protocol-c implementation, but can be any
+	// 32 byte prefix. Golang's ed25519 implementation uses:
+	//
+	//   ph := sha512.Sum512(a.Bytes())
+	//   prefix := ph[32:]
+	prefix := [32]byte{
+		0xFE, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	}
+
+	rh := sha512.New()
+	rh.Write(prefix[:])
+	rh.Write(priv.Bytes())
+	rh.Write(message)
+	rh.Write(random)
+	rDigest := make([]byte, 0, sha512.Size)
+	rDigest = rh.Sum(rDigest)
+
+	r, err := edwards25519.NewScalar().SetUniformBytes(rDigest)
+	if err != nil {
+		return nil, err
+	}
+
+	R := (&edwards25519.Point{}).ScalarBaseMult(r)
+
+	hh := sha512.New()
+	hh.Write(R.Bytes())
+	hh.Write(pub)
+	hh.Write(message)
+	hDigest := make([]byte, 0, sha512.Size)
+	hDigest = hh.Sum(hDigest)
+	h, err := edwards25519.NewScalar().SetUniformBytes(hDigest)
+	if err != nil {
+		return nil, err
+	}
+
+	s := (&edwards25519.Scalar{}).Add(r, h.Multiply(h, priv))
+
+	sig := make([]byte, 64)
+	copy(sig[:32], R.Bytes())
+	copy(sig[32:], s.Bytes())
+	return sig, nil
+}
+
+// Verify reports whether sig is a valid signature of message by publicKey. It
+// will panic if len(publicKey) is not PublicKeySize.
+//
+// It implements the XEdDSA verify method defined in
+// https://signal.org/docs/specifications/xeddsa/#xeddsa
+//
+//   xeddsa_verify(u, M, (R || s)):
+//       if u >= p or R.y >= 2|p| or s >= 2|q|:
+//           return false
+//       A = convert_mont(u)
+//       if not on_curve(A):
+//           return false
+//       h = hash(R || A || M) (mod q)
+//       Rcheck = sB - hA
+//       if bytes_equal(R, Rcheck):
+//           return true
+//       return false
+func Verify(publicKey PublicKey, message, sig []byte) bool {
+	// The following code should be equivalent to:
+	//
+	//   pub, err := publicKey.ToEd25519()
+	//   if err != nil {
+	//       return false
+	//   }
+	//   return ed25519.Verify(pub, message, sig)
+
+	if l := len(publicKey); l != 32 {
+		panic("x25519: bad public key length: " + strconv.Itoa(l))
+	}
+
+	if len(sig) != 64 || sig[63]&0xE0 != 0 {
+		return false
+	}
+
+	A, err := convertMont(publicKey)
+	if err != nil {
+		return false
+	}
+
+	hh := sha512.New()
+	hh.Write(sig[:32])
+	hh.Write(A.Bytes())
+	hh.Write(message)
+	hDigest := make([]byte, 0, sha512.Size)
+	hDigest = hh.Sum(hDigest)
+	h, err := edwards25519.NewScalar().SetUniformBytes(hDigest)
+	if err != nil {
+		return false
+	}
+
+	s, err := edwards25519.NewScalar().SetCanonicalBytes(sig[32:])
+	if err != nil {
+		return false
+	}
+
+	minusA := (&edwards25519.Point{}).Negate(A)
+	R := (&edwards25519.Point{}).VarTimeDoubleScalarBaseMult(h, minusA, s)
+	return subtle.ConstantTimeCompare(sig[:32], R.Bytes()) == 1
+}
+
