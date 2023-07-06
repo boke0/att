@@ -53,6 +53,7 @@ func TestBuildAttTree(t *testing.T) {
 
 	tree := BuildAttTree(states)
 
+
 	t.Run("unbalanced", func(t *testing.T) {
 		if tree.Root.Right.Id != dave.Id.String() {
 			t.Errorf("Root's right node id was %s (wants %s)", tree.Root.Right.Id, dave.Id)

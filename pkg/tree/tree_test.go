@@ -1,6 +1,8 @@
 package tree
 
 import (
+	"fmt"
+	"bytes"
     "testing"
 	"math/rand"
 	"time"
@@ -12,50 +14,110 @@ import (
 func TestExchange(t *testing.T) {
 	entropy := ulid.Monotonic(rand.New(rand.NewSource(time.Now().UnixNano())), 0)
 
-	alice := state.ArtAliceState{
+	alice := state.AttAliceState{
+		Id:                    ulid.MustNew(ulid.Timestamp(time.Now()), entropy),
+		EphemeralKey:          primitives.RandomByte(),
+		EphemeralKeySignature: []byte{0x01},
+	}
+	bob := state.AttAliceState{
+		Id:                    ulid.MustNew(ulid.Timestamp(time.Now()), entropy),
+		EphemeralKey:          primitives.RandomByte(),
+		EphemeralKeySignature: []byte{0x01},
+	}
+	charly := state.AttAliceState{
 		Id:                    ulid.MustNew(ulid.Timestamp(time.Now()), entropy),
 		EphemeralKey:          primitives.RandomByte(),
 		EphemeralKeySignature: []byte{0x01},
 	}
 
-	bob := state.ArtBobState{
-		Id:                    ulid.MustNew(ulid.Timestamp(time.Now()), entropy),
-		EphemeralKey:          primitives.AsPublic(primitives.RandomByte()),
-		EphemeralKeySignature: []byte{0x01},
-	}
-	charly := state.ArtBobState{
-		Id:                    ulid.MustNew(ulid.Timestamp(time.Now()), entropy),
-		EphemeralKey:          primitives.AsPublic(primitives.RandomByte()),
-		EphemeralKeySignature: []byte{0x01},
-	}
+	fmt.Printf("a: %x\n", alice.EphemeralKey)
+	fmt.Printf("b: %x\n", bob.EphemeralKey)
+	fmt.Printf("c: %x\n", charly.EphemeralKey)
 
-	tree := Tree[state.ArtState] {
-		Root: TreeNode[state.ArtState]{
-			Left: &TreeNode[state.ArtState]{
-				Left: &TreeNode[state.ArtState]{
+	aliceTree := Tree[state.AttState] {
+		Root: TreeNode[state.AttState]{
+			Id: primitives.Hash(primitives.Hash(alice.Id.String() + bob.Id.String()) + charly.Id.String()),
+			Left: &TreeNode[state.AttState]{
+				Id: primitives.Hash(alice.Id.String() + bob.Id.String()),
+				Left: &TreeNode[state.AttState]{
 					Id:   alice.Id.String(),
-					Peer: &state.ArtState{ Alice: &alice },
+					Peer: &state.AttState{ Alice: &alice },
 				},
-				Right: &TreeNode[state.ArtState]{
+				Right: &TreeNode[state.AttState]{
 					Id:   bob.Id.String(),
-					Peer: &state.ArtState{ Bob: &bob },
+					Peer: &state.AttState{ Bob: toBob(bob) },
 				},
 			},
-			Right: &TreeNode[state.ArtState] {
+			Right: &TreeNode[state.AttState] {
 				Id:   charly.Id.String(),
-				Peer: &state.ArtState{ Bob: &charly },
+				Peer: &state.AttState{ Bob: toBob(charly) },
+			},
+		},
+	}
+	fmt.Printf("aliceTree: %t\n", aliceTree.Root.Left.Left.Peer.IsAlice())
+	bobTree := Tree[state.AttState] {
+		Root: TreeNode[state.AttState]{
+			Id: primitives.Hash(primitives.Hash(alice.Id.String() + bob.Id.String()) + charly.Id.String()),
+			Left: &TreeNode[state.AttState]{
+				Id: primitives.Hash(alice.Id.String() + bob.Id.String()),
+				Left: &TreeNode[state.AttState]{
+					Id:   alice.Id.String(),
+					Peer: &state.AttState{ Bob: toBob(alice) },
+				},
+				Right: &TreeNode[state.AttState]{
+					Id:   bob.Id.String(),
+					Peer: &state.AttState{ Alice: &bob },
+				},
+			},
+			Right: &TreeNode[state.AttState] {
+				Id:   charly.Id.String(),
+				Peer: &state.AttState{ Bob: toBob(charly) },
+			},
+		},
+	}
+	charlyTree := Tree[state.AttState] {
+		Root: TreeNode[state.AttState]{
+			Id: primitives.Hash(primitives.Hash(alice.Id.String() + bob.Id.String()) + charly.Id.String()),
+			Left: &TreeNode[state.AttState]{
+				Id: primitives.Hash(alice.Id.String() + bob.Id.String()),
+				Left: &TreeNode[state.AttState]{
+					Id:   alice.Id.String(),
+					Peer: &state.AttState{ Bob: toBob(alice) },
+				},
+				Right: &TreeNode[state.AttState]{
+					Id:   bob.Id.String(),
+					Peer: &state.AttState{ Bob: toBob(bob) },
+				},
+			},
+			Right: &TreeNode[state.AttState] {
+				Id:   charly.Id.String(),
+				Peer: &state.AttState{ Alice: &charly },
 			},
 		},
 	}
 	t.Run("exchange", func(t *testing.T) {
-		if tree.Root.Right.Id != charly.Id.String() {
-			t.Errorf("Root's right's node id was %s (wants %s)", tree.Root.Right.Left.Id, charly.Id)
+		aliceKey, keys := aliceTree.DiffieHellman()
+		bobKey, _ := bobTree.DiffieHellman()
+
+		charlyTree.AttachKeys(keys)
+		charlyKey, _ := charlyTree.DiffieHellman()
+
+		if !bytes.Equal(aliceKey, bobKey) {
+			t.Errorf("alice and bob key exchange failed")
 		}
-		if tree.Root.Left.Right.Id != bob.Id.String() {
-			t.Errorf("Root's left's right node id was %s (wants %s)", tree.Root.Left.Right.Id, bob.Id)
+		if !bytes.Equal(bobKey, charlyKey) {
+			t.Errorf("bob and charly key exchange failed")
 		}
-		if tree.Root.Left.Left.Id != alice.Id.String() {
-			t.Errorf("Root's left's left node id was %s (wants %s)", tree.Root.Left.Left.Id, alice.Id)
+		if !bytes.Equal(aliceKey, charlyKey) {
+			t.Errorf("alice and charly key exchange failed")
 		}
 	})
+}
+
+func toBob(alice state.AttAliceState) *state.AttBobState {
+	return &state.AttBobState {
+		Id:                    alice.Id,
+		EphemeralKey:          primitives.AsPublic(alice.EphemeralKey),
+		EphemeralKeySignature: alice.EphemeralKeySignature,
+	}
 }

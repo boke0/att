@@ -1,12 +1,10 @@
 package primitives
 
 import (
-	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha512"
 	"crypto/subtle"
-	"errors"
 	"io"
 	"strconv"
 
