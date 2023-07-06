@@ -5,22 +5,49 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"time"
 
-	"github.com/boke0/att/pkg/primitives"
 	. "github.com/boke0/att/pkg/primitives"
 	. "github.com/boke0/att/pkg/state"
 	. "github.com/boke0/att/pkg/tree"
 	"github.com/oklog/ulid/v2"
 )
 
-func BuildAttTree(states []AttState, senderId string, keys map[string]primitives.PublicKey) Tree[AttState] {
+func BuildAttTree(states []AttState) Tree[AttState] {
 	test := true
     sort.Slice(states, func(i, j int) bool { return states[i].Id() < states[j].Id() })
 	for test {
 		test = false
-		for i := 0; i+1 < len(states); i += 2 {
-			if !(states[i].IsActive() || states[i+1].IsActive()) && i+3 < len(states) {
+		for i := 0; i+3 < len(states); i += 2 {
+			if !(states[i].IsActive() || states[i+1].IsActive()) {
 				if states[i+2].IsActive() || states[i+3].IsActive() {
+					t1 := states[i]
+					t2 := states[i+1]
+					states[i] = states[i+2]
+					states[i+1] = states[i+3]
+					states[i+2] = t1
+					states[i+3] = t2
+					test = true
+				}
+			}
+			if (states[i].IsActive() || states[i+1].IsActive()) && (states[i+2].IsActive() || states[i+3].IsActive()){
+				var (
+					prevActivatedAt *time.Time
+					nextActivatedAt *time.Time
+				)
+				if states[i].IsActive() {
+					prevActivatedAt = states[i].ActivatedAt()
+				}
+				if states[i+1].IsActive() && (prevActivatedAt == nil || (prevActivatedAt != nil && prevActivatedAt.After(*states[i+1].ActivatedAt()))) {
+					prevActivatedAt = states[i+1].ActivatedAt()
+				}
+				if states[i+2].IsActive() {
+					nextActivatedAt = states[i+2].ActivatedAt()
+				}
+				if states[i+3].IsActive() && (prevActivatedAt == nil || (prevActivatedAt != nil && prevActivatedAt.After(*states[i+3].ActivatedAt()))) {
+					nextActivatedAt = states[i+3].ActivatedAt()
+				}
+				if (prevActivatedAt == nil && nextActivatedAt != nil) || (prevActivatedAt != nil && nextActivatedAt != nil && prevActivatedAt.After(*nextActivatedAt)) {
 					t1 := states[i]
 					t2 := states[i+1]
 					states[i] = states[i+2]
@@ -67,20 +94,13 @@ func BuildAttTree(states []AttState, senderId string, keys map[string]primitives
 		for i := 2; i<len(states); i+= 2 {
 			if len(states) > i + 1 {
 				if states[i].IsActive() || states[i + 1].IsActive() {
-					//id := sha256.Sum256([]byte(states[i].Id() + states[i + 1].Id()))
-					//key := keys[hex.EncodeToString(id[:])]
-					//if treeNode.IsIn(senderId) || states[i].Id() == senderId || states[i + 1].Id() == senderId || key != nil {
-						treeNode = addTwo(treeNode, states[i], states[i + 1], senderId, keys)
-					//}else{
-						//treeNode = add(treeNode, states[i], senderId, keys)
-						//treeNode = add(treeNode, states[i + 1], senderId, keys)
-					//}
+					treeNode = addTwo(treeNode, states[i], states[i + 1])
 				}else{
-					treeNode = add(treeNode, states[i], senderId, keys)
-					treeNode = add(treeNode, states[i + 1], senderId, keys)
+					treeNode = add(treeNode, states[i])
+					treeNode = add(treeNode, states[i + 1])
 				}
 			}else{
-				treeNode = add(treeNode, states[i], senderId, keys)
+				treeNode = add(treeNode, states[i])
 			}
 		}
 	}
@@ -90,7 +110,7 @@ func BuildAttTree(states []AttState, senderId string, keys map[string]primitives
 	return tree
 }
 
-func insertToAtt(t TreeNode[AttState], state AttState, senderId string, keys map[string]primitives.PublicKey) TreeNode[AttState] {
+func insertToAtt(t TreeNode[AttState], state AttState) TreeNode[AttState] {
 	if t.Left == nil || t.Right == nil {
 		id := sha256.Sum256([]byte(t.Id + state.Id()))
 		
@@ -103,7 +123,7 @@ func insertToAtt(t TreeNode[AttState], state AttState, senderId string, keys map
 			},
 		}
 	}else if t.Left.Count() > t.Right.Count() && (isActive(*t.Right) || state.IsActive()) {
-		right := insertToAtt(*t.Right, state, senderId, keys)
+		right := insertToAtt(*t.Right, state)
 		t.Right = &right
 		return t
 	}else{
@@ -120,13 +140,13 @@ func insertToAtt(t TreeNode[AttState], state AttState, senderId string, keys map
 	}
 }
 
-func addTwo(t TreeNode[AttState], state1 AttState, state2 AttState, senderId string, keys map[string]primitives.PublicKey) TreeNode[AttState] {
-	t = insertToAtt(t, state1, senderId, keys)
-	t = insertToAtt(t, state2, senderId, keys)
+func addTwo(t TreeNode[AttState], state1 AttState, state2 AttState) TreeNode[AttState] {
+	t = insertToAtt(t, state1)
+	t = insertToAtt(t, state2)
     return t
 }
 
-func add(t TreeNode[AttState], state AttState, senderId string, keys map[string]primitives.PublicKey) TreeNode[AttState] {
+func add(t TreeNode[AttState], state AttState) TreeNode[AttState] {
     idBytes := sha256.Sum256([]byte(t.Id + state.Id()))
 	return TreeNode[AttState] {
 		Id: hex.EncodeToString(idBytes[:]),

@@ -65,7 +65,7 @@ func (t TreeNode[IPeer]) DiffieHellman() ([]byte, map[string]primitives.PublicKe
                 panic("public key is empty")
             }
         }else{
-            //panic("invalid tree structure")
+            panic("invalid tree structure")
         }
 
         //fmt.Printf("%x %x\n", primitives.AsPublic(privateKey), publicKey)

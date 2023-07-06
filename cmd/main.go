@@ -13,8 +13,8 @@ import (
 
 func main() {
     //r := 100
-    r := 2000
-    n := 500
+    r := 100
+    n := 100
 
     entities := []AttAlice{}
     for i := 0; i<n; i++ {
@@ -76,9 +76,7 @@ func main() {
             }else{
                 received := alice.Receive(message, bobs)
                 if !bytes.Equal(received, sent) {
-                    //panic("invalid message")
-                }else{
-                    //fmt.Println("ok")
+                    panic("invalid message")
                 }
             }
             if max_receive_time < time.Since(t).Milliseconds() {

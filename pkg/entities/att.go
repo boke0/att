@@ -3,6 +3,8 @@ package entities
 import (
 	crand "crypto/rand"
 	"encoding/hex"
+	"fmt"
+
 	//"fmt"
 	mrand "math/rand"
 	"time"
@@ -67,7 +69,6 @@ func (a *AttAlice) Initialize(bobs map[string]AttBob) messages.AttMessage {
 			Id:                    initiatorRoomUserId,
 			EphemeralKey:          initializeKey,
 			EphemeralKeySignature: initializeKeySignature,
-			IsActive:              false,
 		},
 	}
 	a.states[a.Id] = astate
@@ -87,7 +88,6 @@ func (a *AttAlice) Initialize(bobs map[string]AttBob) messages.AttMessage {
 				Id:                    id,
 				EphemeralKey:          bob.SignedPrekey,
 				EphemeralKeySignature: bob.SignedPrekeySignature,
-				IsActive:              false,
 			},
 		}
 		users[bob.Id] = messages.AttUserInitializeMessage{
@@ -108,24 +108,27 @@ func (a *AttAlice) Initialize(bobs map[string]AttBob) messages.AttMessage {
 }
 
 func (a *AttAlice) Send(mes []byte) messages.AttMessage {
-	//fmt.Println(a.Id + " sends")
+	fmt.Println(a.Id + " sends")
 	ephemeral_key := primitives.RandomByte()
 	public_ephemeral_key := primitives.AsPublic(ephemeral_key)
 	ephemeral_key_signature, _ := primitives.Sign(crand.Reader, a.IdentityKey, public_ephemeral_key)
 
 	a.states[a.Id].Alice.EphemeralKey = ephemeral_key
 	a.states[a.Id].Alice.EphemeralKeySignature = ephemeral_key_signature
-	a.states[a.Id].Alice.IsActive = true
+	if a.states[a.Id].Alice.ActivatedAt == nil {
+		t := time.Now()
+		a.states[a.Id].Alice.ActivatedAt = &t
+	}
 
 	states := []state.AttState{}
 	for _, state := range a.states {
 		states = append(states, state)
 	}
 
-	tree := builder.BuildAttTree(states, a.states[a.Id].Id(), a.keys)
+	tree := builder.BuildAttTree(states)
 	tree.AttachKeys(a.keys)
 
-	//builder.PrintTree(&tree.Root, 2)
+	builder.PrintTree(&tree.Root, 2)
 	key, key_bytes := tree.DiffieHellman()
 	//fmt.Printf("k: %x\n", key)
 	
@@ -163,7 +166,6 @@ func (a *AttAlice) Receive(mes messages.AttMessage, bobs map[string]AttBob) []by
 					Id:                    ulid.MustParse(mes.InitializeMessage.InitiatorRoomUserId),
 					EphemeralKey:          ephemeralKey,
 					EphemeralKeySignature: ephemeralKeySignature,
-					IsActive:              false,
 				},
 			}
 		}
@@ -176,7 +178,6 @@ func (a *AttAlice) Receive(mes messages.AttMessage, bobs map[string]AttBob) []by
 						Id:                    ulid.MustParse(user.RoomUserId),
 						EphemeralKey:          ephemeralKey,
 						EphemeralKeySignature: ephemeralKeySignature,
-						IsActive:              false,
 					},
 				}
 			} else if user_uuid != mes.InitializeMessage.InitiatorId {
@@ -191,7 +192,6 @@ func (a *AttAlice) Receive(mes messages.AttMessage, bobs map[string]AttBob) []by
 						Id:                    ulid.MustParse(user.RoomUserId),
 						EphemeralKey:          ephemeralKey,
 						EphemeralKeySignature: ephemeralKeySignature,
-						IsActive:              false,
 					},
 				}
 			}
@@ -216,14 +216,17 @@ func (a *AttAlice) Receive(mes messages.AttMessage, bobs map[string]AttBob) []by
 
 		a.states[mes.TextMessage.SenderId].Bob.EphemeralKey = ephemeralKey
 		a.states[mes.TextMessage.SenderId].Bob.EphemeralKeySignature = ephemeralKeySignature
-		a.states[mes.TextMessage.SenderId].Bob.IsActive = true
+		if a.states[mes.TextMessage.SenderId].Bob.ActivatedAt == nil {
+			t := time.Now()
+			a.states[mes.TextMessage.SenderId].Bob.ActivatedAt = &t
+		}
 
 		states := []state.AttState{}
 		for _, state := range a.states {
 			states = append(states, state)
 		}
 
-		tree := builder.BuildAttTree(states, a.states[mes.TextMessage.SenderId].Id(), a.keys)
+		tree := builder.BuildAttTree(states)
 		builder.AttachAttKeys(&tree, a.keys)
 		//builder.PrintTree(&tree.Root, 2)
 		key, _ := tree.DiffieHellman()

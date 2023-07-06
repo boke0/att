@@ -1,6 +1,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/boke0/att/pkg/primitives"
 	. "github.com/boke0/att/pkg/primitives"
 	"github.com/oklog/ulid/v2"
@@ -21,9 +23,17 @@ func (a AttState) Id() string {
 
 func (a AttState) IsActive() bool {
     if a.Alice != nil {
-        return a.Alice.IsActive
+        return a.Alice.ActivatedAt != nil
     }else{
-        return a.Bob.IsActive
+        return a.Bob.ActivatedAt != nil
+    }
+}
+
+func (a AttState) ActivatedAt() *time.Time {
+    if a.Alice != nil {
+        return a.Alice.ActivatedAt
+    }else{
+        return a.Bob.ActivatedAt
     }
 }
 
@@ -55,12 +65,12 @@ type AttAliceState struct {
     Id ulid.ULID
     EphemeralKey primitives.PrivateKey
     EphemeralKeySignature []byte
-    IsActive bool
+    ActivatedAt *time.Time
 }
 
 type AttBobState struct {
     Id ulid.ULID
     EphemeralKey primitives.PublicKey
     EphemeralKeySignature []byte
-    IsActive bool
+    ActivatedAt *time.Time
 }
