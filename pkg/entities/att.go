@@ -3,9 +3,7 @@ package entities
 import (
 	crand "crypto/rand"
 	"encoding/hex"
-	"fmt"
 
-	//"fmt"
 	mrand "math/rand"
 	"time"
 
@@ -108,7 +106,6 @@ func (a *AttAlice) Initialize(bobs map[string]AttBob) messages.AttMessage {
 }
 
 func (a *AttAlice) Send(mes []byte) messages.AttMessage {
-	fmt.Println(a.Id + " sends")
 	ephemeral_key := primitives.RandomByte()
 	public_ephemeral_key := primitives.AsPublic(ephemeral_key)
 	ephemeral_key_signature, _ := primitives.Sign(crand.Reader, a.IdentityKey, public_ephemeral_key)
@@ -125,12 +122,9 @@ func (a *AttAlice) Send(mes []byte) messages.AttMessage {
 		states = append(states, state)
 	}
 
-	tree := builder.BuildAttTree(states)
-	tree.AttachKeys(a.keys)
+	tree := builder.BuildAttTree(states, a.keys)
 
-	builder.PrintTree(&tree.Root, 2)
 	key, key_bytes := tree.DiffieHellman()
-	//fmt.Printf("k: %x\n", key)
 	
 	keys := map[string]messages.AttPublicKey{}
 	for nid, key_byte := range key_bytes {
@@ -198,7 +192,6 @@ func (a *AttAlice) Receive(mes messages.AttMessage, bobs map[string]AttBob) []by
 		}
 		return []byte{}
 	} else if mes.TextMessage != nil {
-		//fmt.Println(a.Id + " receives")
 		for nid, key := range mes.TextMessage.Keys {
 			pk, _ := hex.DecodeString(key.PublicKey)
 			pk_sig, _ := hex.DecodeString(key.PublicKeySignature)
@@ -209,7 +202,6 @@ func (a *AttAlice) Receive(mes messages.AttMessage, bobs map[string]AttBob) []by
 		}
 		ephemeralKey, _ := hex.DecodeString(mes.TextMessage.EphemeralKey)
 		ephemeralKeySignature, _ := hex.DecodeString(mes.TextMessage.EphemeralKeySignature)
-		//fmt.Println("senderId: ", mes.TextMessage.SenderId)
 		if ok := primitives.Verify(bobs[mes.TextMessage.SenderId].IdentityKey, ephemeralKey, ephemeralKeySignature); !ok {
 			panic("invalid public key signature")
 		}
@@ -226,12 +218,8 @@ func (a *AttAlice) Receive(mes messages.AttMessage, bobs map[string]AttBob) []by
 			states = append(states, state)
 		}
 
-		tree := builder.BuildAttTree(states)
-		builder.AttachAttKeys(&tree, a.keys)
-		//builder.PrintTree(&tree.Root, 2)
+		tree := builder.BuildAttTree(states, a.keys)
 		key, _ := tree.DiffieHellman()
-
-		//fmt.Printf("k: %x\n", key)
 		
 		cipher, _ := hex.DecodeString(mes.TextMessage.Payload)
 		payload := primitives.Decrypt(cipher, key)

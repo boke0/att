@@ -17,6 +17,8 @@ type TreeNode[Peer IPeer] struct {
     PublicKey *primitives.PublicKey
     Left *TreeNode[Peer]
     Right *TreeNode[Peer]
+    IsActive bool
+    Count int
 }
 
 func (t Tree[IPeer]) DiffieHellman() ([]byte, map[string]primitives.PublicKey) {
@@ -83,13 +85,13 @@ func (t TreeNode[IPeer]) DiffieHellman() ([]byte, map[string]primitives.PublicKe
     }
 }
 
-func (t TreeNode[IPeer]) Count() int {
+/*func (t TreeNode[IPeer]) Count() int {
     if t.Peer != nil {
         return 1
     }else{
         return t.Left.Count() + t.Right.Count()
     }
-}
+}*/
 
 func merge(m ...map[string]primitives.PublicKey) map[string]primitives.PublicKey {
     ans := make(map[string]primitives.PublicKey, 0)

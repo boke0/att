@@ -2,27 +2,32 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
-    "time"
-    "encoding/json"
+	"time"
+	mrand "math/rand"
 
 	. "github.com/boke0/att/pkg/entities"
 	. "github.com/boke0/att/pkg/messages"
 	"github.com/boke0/att/pkg/primitives"
+	"github.com/oklog/ulid/v2"
 )
 
 func main() {
     //r := 100
     r := 100
-    n := 100
+    n := 10
 
-    entities := []AttAlice{}
+	entropy := ulid.Monotonic(mrand.New(mrand.NewSource(time.Now().UnixNano())), 0)
+    entities := []ArtAlice{}
+
     for i := 0; i<n; i++ {
-        entities = append(entities, NewAttAlice())
+        id := ulid.MustNew(uint64(i), entropy)
+        entities = append(entities, NewArtAlice(id.String()))
     }
 
     var (
-        message AttMessage
+        message ArtMessage
         sent []byte
     )
 
@@ -36,7 +41,7 @@ func main() {
         /** ## 準備 **/
         // i番目のEntity視点で、AliceとBobに分ける
         alice := entities[i%n]
-        bobs := map[string]AttBob{}
+        bobs := map[string]ArtBob{}
         for _, entity := range entities {
             if entity.Id != alice.Id {
                 bobs[entity.Id] = entity.Bob()
@@ -63,7 +68,7 @@ func main() {
             /** ## 準備 **/
             // i番目のEntity視点で、AliceとBobに分ける
             alice := entities[j]
-            bobs := map[string]AttBob{}
+            bobs := map[string]ArtBob{}
             for _, entity := range entities {
                 if entity.Id != alice.Id {
                     bobs[entity.Id] = entity.Bob()
