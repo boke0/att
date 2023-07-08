@@ -15,8 +15,8 @@ import (
 
 func main() {
     //r := 100
-    r := 100
-    n := 10
+    r := 200
+    n := 500
 
 	entropy := ulid.Monotonic(mrand.New(mrand.NewSource(time.Now().UnixNano())), 0)
     entities := []ArtAlice{}

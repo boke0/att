@@ -1,6 +1,8 @@
 package state
 
 import (
+	"crypto/sha256"
+
 	"github.com/boke0/att/pkg/primitives"
 	. "github.com/boke0/att/pkg/primitives"
 )
@@ -52,7 +54,14 @@ type ArtAliceState struct {
 }
 
 func (a ArtAliceState) PrivateKey() primitives.PrivateKey {
-	return DiffieHellman(a.EphemeralKey, a.SetupKey)
+	if a.IsInitiator {
+		return a.EphemeralKey
+	}else{
+		result := DiffieHellman(a.EphemeralKey, a.SetupKey)
+		hashed := sha256.Sum256(result)
+		key := primitives.PrivateKey(hashed[:])
+		return key
+	}
 }
 
 func (a ArtAliceState) PublicKey() primitives.PublicKey {
@@ -67,9 +76,16 @@ type ArtBobState struct {
 }
 
 func (a ArtBobState) PrivateKey() primitives.PrivateKey {
-	return DiffieHellman(a.SetupKey, a.EphemeralKey)
+	result :=DiffieHellman(a.SetupKey, a.EphemeralKey)
+	hashed := sha256.Sum256(result)
+	key := primitives.PrivateKey(hashed[:])
+	return key
 }
 
 func (a ArtBobState) PublicKey() primitives.PublicKey {
-	return AsPublic(a.PrivateKey())
+	if a.IsInitiator {
+		return a.EphemeralKey
+	}else{
+		return AsPublic(a.PrivateKey())
+	}
 }

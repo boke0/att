@@ -2,7 +2,6 @@ package tree
 
 import (
 	"crypto/sha256"
-    //"fmt"
 
 	"github.com/boke0/att/pkg/primitives"
 )
@@ -14,6 +13,7 @@ type Tree[Peer IPeer] struct {
 type TreeNode[Peer IPeer] struct {
     Id string
     Peer IPeer
+    PrivateKey *primitives.PrivateKey
     PublicKey *primitives.PublicKey
     Left *TreeNode[Peer]
     Right *TreeNode[Peer]
@@ -37,8 +37,14 @@ func (t TreeNode[IPeer]) IsAliceSide() bool {
 
 func (t TreeNode[IPeer]) DiffieHellman() ([]byte, map[string]primitives.PublicKey) {
     if t.IsAlice() {
+        if t.PrivateKey != nil {
+            return *t.PrivateKey, make(map[string]primitives.PublicKey)
+        }
         return *t.Peer.PrivateKey(), make(map[string]primitives.PublicKey)
     }else if t.Peer != nil {
+        if t.PublicKey != nil {
+            return *t.PublicKey, make(map[string]primitives.PublicKey)
+        }
         return t.Peer.PublicKey(), make(map[string]primitives.PublicKey)
     }else if t.PublicKey != nil && !t.IsAliceSide() {
         return *t.PublicKey, make(map[string]primitives.PublicKey)
@@ -67,10 +73,13 @@ func (t TreeNode[IPeer]) DiffieHellman() ([]byte, map[string]primitives.PublicKe
                 panic("public key is empty")
             }
         }else{
-            panic("invalid tree structure")
+            if t.Left.PrivateKey != nil || t.Right.PrivateKey != nil {
+                privateKey = *t.Left.PrivateKey
+                publicKey = *t.Right.PublicKey
+            }else{
+                panic("invalid tree structure")
+            }
         }
-
-        //fmt.Printf("%x %x\n", primitives.AsPublic(privateKey), publicKey)
 
         result := primitives.DiffieHellman(privateKey, publicKey)
         key := sha256.Sum256(result)
