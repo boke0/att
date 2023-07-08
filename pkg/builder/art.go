@@ -12,7 +12,7 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-func BuildArtTree(states []ArtState, keys map[string]primitives.PublicKey) Tree[ArtState] {
+func BuildArtTree(states []ArtState, keys map[string]primitives.PublicKey, initialize bool) Tree[ArtState] {
     sort.Slice(states, func(i, j int) bool { return states[i].Id() < states[j].Id() })
 	
 	id := Hash(states[0].Id() + states[1].Id())
@@ -51,7 +51,7 @@ func BuildArtTree(states []ArtState, keys map[string]primitives.PublicKey) Tree[
 		if !treeNode.IsAliceSide() {
 			treeNode.PublicKey = &k
 		}
-	}else if !treeNode.IsAliceSide() {
+	}else if !treeNode.IsAliceSide() && initialize {
 		result := primitives.DiffieHellman(
 			*treeNode.Left.Peer.PrivateKey(),
 			treeNode.Right.Peer.PublicKey(),
@@ -64,7 +64,7 @@ func BuildArtTree(states []ArtState, keys map[string]primitives.PublicKey) Tree[
 	}
 	if len(states) > 2 {
 		for i := 2; i<len(states); i+= 1 {
-			treeNode = insertToArt(treeNode, states[i], keys)
+			treeNode = insertToArt(treeNode, states[i], keys, initialize)
 		}
 	}
 	tree := Tree[ArtState] {
@@ -73,7 +73,7 @@ func BuildArtTree(states []ArtState, keys map[string]primitives.PublicKey) Tree[
 	return tree
 }
 
-func insertToArt(t TreeNode[ArtState], state ArtState, keys map[string]primitives.PublicKey) TreeNode[ArtState] {
+func insertToArt(t TreeNode[ArtState], state ArtState, keys map[string]primitives.PublicKey, initialize bool) TreeNode[ArtState] {
 	if t.Left == nil || t.Right == nil {
 		id := Hash(t.Id + state.Id())
 		
@@ -100,7 +100,7 @@ func insertToArt(t TreeNode[ArtState], state ArtState, keys map[string]primitive
 			if !treeNode.IsAliceSide() {
 				treeNode.PublicKey = &k
 			}
-		}else if !treeNode.IsAliceSide() {
+		}else if !treeNode.IsAliceSide() && initialize {
 			result := primitives.DiffieHellman(
 				*treeNode.Left.PrivateKey,
 				*treeNode.Right.PublicKey,
@@ -113,14 +113,14 @@ func insertToArt(t TreeNode[ArtState], state ArtState, keys map[string]primitive
 		}
 		return treeNode
 	}else if t.Left.Count > t.Right.Count {
-		right := insertToArt(*t.Right, state, keys)
+		right := insertToArt(*t.Right, state, keys, initialize)
 		t.Right = &right
 		t.Count = t.Left.Count + t.Right.Count
 		if k, ok := keys[t.Id]; ok {
 			if !t.IsAliceSide() {
 				t.PublicKey = &k
 			}
-		}else if !t.IsAliceSide() {
+		}else if !t.IsAliceSide() && initialize {
 			result := primitives.DiffieHellman(
 				*t.Left.PrivateKey,
 				*t.Right.PublicKey,
@@ -156,7 +156,7 @@ func insertToArt(t TreeNode[ArtState], state ArtState, keys map[string]primitive
 			if !treeNode.IsAliceSide() {
 				treeNode.PublicKey = &k
 			}
-		}else if !treeNode.IsAliceSide() && treeNode.PrivateKey == nil && treeNode.PublicKey == nil {
+		}else if !treeNode.IsAliceSide() && initialize {
 			result := primitives.DiffieHellman(
 				*treeNode.Left.PrivateKey,
 				*treeNode.Right.PublicKey,
@@ -229,12 +229,12 @@ func PrintArtTree(node *TreeNode[ArtState], space int) {
 				fmt.Printf("b: %d %x %x %t\n", ulid.MustParse(node.Id).Time(), (*(*node).PublicKey), ((*node).Peer.PublicKey()), node.Peer.(*ArtState).Bob.IsInitiator)
 			}
 		}else{
-			fmt.Printf("%s %x %x %d\n", node.Id[:8], (*node.PrivateKey), (*node.PublicKey), node.Count)
+			fmt.Printf("%s %x %d\n", node.Id[:8], (*node.PublicKey), node.Count)
 		}
-	}else if node.Peer != nil {
 	}else if node.IsAliceSide() {
-		key, _ := node.DiffieHellman()
-		fmt.Printf("asite:%s %x %x %d\n", node.Id[:8], key, primitives.AsPublic(key), node.Count)
+		fmt.Printf("asite:%s %t %t %d\n", node.Id[:8], node.PrivateKey != nil, node.PublicKey != nil, node.Count)
+	}else{
+		fmt.Printf("%s %t %t %d\n", node.Id[:8], node.PrivateKey != nil, node.PublicKey != nil, node.Count)
 	}
 	println("")
 	PrintArtTree(node.Left, space)

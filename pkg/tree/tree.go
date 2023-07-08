@@ -73,9 +73,14 @@ func (t TreeNode[IPeer]) DiffieHellman() ([]byte, map[string]primitives.PublicKe
                 panic("public key is empty")
             }
         }else{
-            if t.Left.PrivateKey != nil || t.Right.PrivateKey != nil {
+            if t.Left.PrivateKey != nil {
                 privateKey = *t.Left.PrivateKey
                 publicKey = *t.Right.PublicKey
+            
+            }else if t.Right.PrivateKey != nil{
+                privateKey = *t.Right.PrivateKey
+                publicKey = *t.Left.PublicKey
+
             }else{
                 panic("invalid tree structure")
             }

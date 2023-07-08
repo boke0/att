@@ -4,6 +4,7 @@ import (
 	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 
 	"github.com/boke0/att/pkg/builder"
 	"github.com/boke0/att/pkg/messages"
@@ -83,7 +84,7 @@ func (a *ArtAlice) Initialize(bobs map[string]ArtBob) messages.ArtMessage {
 		states = append(states, state)
 	}
 
-	tree := builder.BuildArtTree(states, map[string]primitives.PublicKey{})
+	tree := builder.BuildArtTree(states, map[string]primitives.PublicKey{}, true)
 	_, keys := tree.DiffieHellman()
 	a.keys = keys
 
@@ -95,6 +96,7 @@ func (a *ArtAlice) Initialize(bobs map[string]ArtBob) messages.ArtMessage {
 			PublicKey:          hex.EncodeToString(key_byte),
 			PublicKeySignature: hex.EncodeToString(sig),
 		}
+		a.keys[nid] = key_byte
 	}
 	for nid, key := range keys {
 		sig, _ := primitives.Sign(crand.Reader, a.IdentityKey, key)
@@ -134,9 +136,11 @@ func (a *ArtAlice) Send(mes []byte) messages.ArtMessage {
 		states = append(states, state)
 	}
 
-	tree := builder.BuildArtTree(states, a.keys)
+	tree := builder.BuildArtTree(states, a.keys, false)
 
 	key, key_bytes := tree.DiffieHellman()
+
+	fmt.Printf("%s sends by %x\n", a.Id, key)
 
 	keys := map[string]messages.ArtPublicKey{}
 	for nid, key_byte := range key_bytes {
@@ -241,7 +245,7 @@ func (a *ArtAlice) Receive(mes messages.ArtMessage, bobs map[string]ArtBob) []by
 			states = append(states, state)
 		}
 
-		tree := builder.BuildArtTree(states, a.keys)
+		tree := builder.BuildArtTree(states, a.keys, false)
 		key, _ := tree.DiffieHellman()
 
 		cipher, _ := hex.DecodeString(mes.TextMessage.Payload)
