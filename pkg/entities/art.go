@@ -140,8 +140,6 @@ func (a *ArtAlice) Send(mes []byte) messages.ArtMessage {
 
 	key, key_bytes := tree.DiffieHellman()
 
-	fmt.Printf("%s sends by %x\n", a.Id, key)
-
 	keys := map[string]messages.ArtPublicKey{}
 	for nid, key_byte := range key_bytes {
 		sig, _ := primitives.Sign(crand.Reader, a.IdentityKey, key_byte)
