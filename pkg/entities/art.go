@@ -4,7 +4,6 @@ import (
 	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 
 	"github.com/boke0/att/pkg/builder"
 	"github.com/boke0/att/pkg/messages"
