@@ -3,8 +3,6 @@ package builder
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
-	"os"
 	"sort"
 	"time"
 
@@ -17,10 +15,7 @@ import (
 
 func BuildAttTree(states []AttState, keys map[string]primitives.PublicKey) Tree[AttState] {
 	test := true
-	startTime := time.Now()
     sort.Slice(states, func(i, j int) bool { return states[i].Id() < states[j].Id() })
-	initialSortTime := time.Since(startTime)
-	pairSortStartTime := time.Now()
 	for test {
 		test = false
 		for i := 0; i+3 < len(states); i += 2 {
@@ -64,8 +59,6 @@ func BuildAttTree(states []AttState, keys map[string]primitives.PublicKey) Tree[
 			}
 		}
 	}
-	pairSortTime := time.Since(pairSortStartTime)
-	addingStartTime := time.Now()
 	id := Hash(states[0].Id() + states[1].Id())
 	var treeNode TreeNode[AttState]
 	treeNode = TreeNode[AttState]{
@@ -106,11 +99,9 @@ func BuildAttTree(states []AttState, keys map[string]primitives.PublicKey) Tree[
 			}
 		}
 	}
-	addingTime := time.Since(addingStartTime)
 	tree := Tree[AttState] {
 		Root: treeNode,
 	}
-	fmt.Fprintf(os.Stderr, "initial_sort: %d, pair_sort: %d, adding: %d\n", initialSortTime.Microseconds(), pairSortTime.Microseconds(), addingTime.Microseconds())
 	return tree
 }
 

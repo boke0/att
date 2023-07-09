@@ -13,8 +13,8 @@ import (
 
 func main() {
     //r := 100
-    r := 2000
-    n := 1000
+    r := 20
+    n := 50
 
     entities := []AttAlice{}
     for i := 0; i<n; i++ {
