@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
+	"fmt"
 	"time"
 
 	"github.com/boke0/att/pkg/primitives"
